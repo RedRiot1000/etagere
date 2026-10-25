@@ -1,0 +1,25 @@
+ÉTAGÈRE — ton bureau enfin rangé
+================================
+
+Étagère range tes jeux et tes applications dans une jolie fenêtre,
+et les lance d'un clic. Ton bureau reste propre.
+
+INSTALLATION
+  Rien à installer. Mets Etagere.exe où tu veux (par exemple dans Documents),
+  puis double-clique dessus. Si Windows affiche « Windows a protégé votre
+  ordinateur », clique sur « Informations complémentaires » puis « Exécuter
+  quand même » (l'app n'est pas signée, c'est normal pour un programme maison).
+
+UTILISATION
+  - « Ranger mon bureau » : tous les raccourcis du bureau vont dans l'Étagère.
+    Rien n'est supprimé : « Remettre mes raccourcis sur le bureau » les remet.
+  - « Mes jeux » : trouve automatiquement les jeux Steam et Epic Games installés
+    (avec leurs jaquettes Steam).
+  - « Ajouter » ou glisser-déposer un programme dans la fenêtre pour l'ajouter.
+  - Clic sur une tuile = lancer. Clic droit = favori, catégorie, renommer, retirer.
+  - Tape directement au clavier pour chercher, Entrée lance le premier résultat.
+  - Ctrl + molette (ou le curseur en haut à droite) : taille des tuiles.
+  - « Démarrer avec Windows » : l'Étagère s'ouvre (réduite) au démarrage.
+
+OÙ SONT MES RACCOURCIS ?
+  Dans %APPDATA%\Etagere\Raccourcis (et la liste dans etagere.json).
