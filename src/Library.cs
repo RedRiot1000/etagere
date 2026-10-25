@@ -117,7 +117,36 @@ namespace Etagere
             return g;
         }
 
-        public static Brush For(string cat) { return cat == Games ? games : cat == Papers ? papers : cat == Other ? other : apps; }
+        // Catégories créées par l'utilisateur : nom → couleur
+        public static readonly Dictionary<string, Brush> Custom = new Dictionary<string, Brush>();
+        public static readonly string[] Palette = { "#7C3AED", "#DB2777", "#059669", "#2563EB", "#D97706", "#DC2626", "#0891B2", "#65A30D" };
+
+        public static void Register(IEnumerable<CustomCategory> cats)
+        {
+            Custom.Clear();
+            foreach (var c in cats)
+            {
+                var col = (Color)ColorConverter.ConvertFromString(c.Color ?? Palette[0]);
+                var g = new LinearGradientBrush(col, Color.FromRgb((byte)(col.R / 5 + 12), (byte)(col.G / 5 + 10), (byte)(col.B / 5 + 22)), new Point(0, 0), new Point(0.6, 1));
+                g.Freeze();
+                Custom[c.Name] = g;
+            }
+        }
+
+        public static IEnumerable<string> Names() { return All.Concat(Custom.Keys); }
+
+        public static Brush For(string cat)
+        {
+            Brush b;
+            if (cat != null && Custom.TryGetValue(cat, out b)) return b;
+            return cat == Games ? games : cat == Papers ? papers : cat == Other ? other : apps;
+        }
+    }
+
+    public class CustomCategory
+    {
+        public string Name { get; set; }
+        public string Color { get; set; }
     }
 
     public class LibraryData
@@ -127,11 +156,15 @@ namespace Etagere
         public bool MinimizeOnLaunch { get; set; }
         public double Zoom { get; set; }
         public string Sort { get; set; }
+        public string Theme { get; set; }
+        public string LastSeenVersion { get; set; }
+        public List<CustomCategory> Categories { get; set; }
 
         public LibraryData()
         {
             Items = new List<Item>();
             Ignored = new List<string>();
+            Categories = new List<CustomCategory>();
             MinimizeOnLaunch = true;
             Zoom = 1;
             Sort = "name";
@@ -142,7 +175,8 @@ namespace Etagere
     {
         public static readonly string Dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Etagere");
         public static readonly string ShortcutDir = Path.Combine(Dir, "Raccourcis");
-        public static readonly string PapersDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Papiers importants");
+        public static readonly string FoldersDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Dossiers du bureau");
+        public static readonly string PapersDir =Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Papiers importants");
         static readonly string FilePath = Path.Combine(Dir, "etagere.json");
 
         public static bool IsFirstRun { get { return !File.Exists(FilePath); } }
@@ -160,6 +194,7 @@ namespace Etagere
                     {
                         if (d.Items == null) d.Items = new List<Item>();
                         if (d.Ignored == null) d.Ignored = new List<string>();
+                        if (d.Categories == null) d.Categories = new List<CustomCategory>();
                         if (d.Zoom < 0.6 || d.Zoom > 1.6) d.Zoom = 1;
                         d.Items.RemoveAll(i => i == null || string.IsNullOrEmpty(i.Path));
                         return d;
@@ -185,7 +220,7 @@ namespace Etagere
             var dest = Path.Combine(dir, fileName);
             var stem = Path.GetFileNameWithoutExtension(fileName);
             var ext = Path.GetExtension(fileName);
-            for (int n = 2; File.Exists(dest); n++)
+            for (int n = 2; File.Exists(dest) || Directory.Exists(dest); n++)
                 dest = Path.Combine(dir, stem + " (" + n + ")" + ext);
             return dest;
         }
@@ -537,22 +572,43 @@ namespace Etagere
                 || (Common != "" && dir.Equals(Common.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase));
         }
 
-        // Raccourcis + documents (PDF, Word, images…) posés sur le bureau
+        static bool Visible(string path)
+        {
+            return (File.GetAttributes(path) & (FileAttributes.Hidden | FileAttributes.System)) == 0;
+        }
+
+        // Raccourcis, documents (PDF, Word, images…) et dossiers posés sur le bureau
         public static List<string> FindClutter()
         {
             var list = new List<string>();
+            var exeDir = Path.GetDirectoryName(Updater.ExePath);
             foreach (var d in new[] { User, Common })
             {
                 if (string.IsNullOrEmpty(d) || !Directory.Exists(d)) continue;
                 try
                 {
-                    list.AddRange(Directory.GetFiles(d).Where(f =>
-                        (File.GetAttributes(f) & (FileAttributes.Hidden | FileAttributes.System)) == 0
-                        && (ShortcutInfo.IsShortcut(f) || ShortcutInfo.IsDocument(f))));
+                    list.AddRange(Directory.GetFiles(d).Where(f => Visible(f) && (ShortcutInfo.IsShortcut(f) || ShortcutInfo.IsDocument(f))));
+                    // Pas le dossier où se trouve l'Étagère elle-même
+                    list.AddRange(Directory.GetDirectories(d).Where(f => Visible(f)
+                        && !exeDir.StartsWith(f.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase)
+                        && !exeDir.Equals(f.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)));
                 }
                 catch { }
             }
             return list;
+        }
+
+        static void TidyFolder(LibraryData data, string folder, TidyResult r)
+        {
+            var dest = Store.UniqueIn(Store.FoldersDir, Path.GetFileName(folder.TrimEnd('\\')));
+            try { Directory.Move(folder, dest); }
+            catch { r.Locked++; return; }   // dossier ouvert ou sur un autre disque : on le laisse
+            r.Moved++;
+            var it = Importer.New(Path.GetFileName(dest), dest, Tiles.Other);
+            it.FromDesktop = true;
+            it.OriginalFolder = Path.GetDirectoryName(folder.TrimEnd('\\'));
+            data.Items.Add(it);
+            r.Added++;
         }
 
         public static TidyResult Tidy(LibraryData data, IEnumerable<string> files)
@@ -564,6 +620,7 @@ namespace Etagere
 
         public static void TidyOne(LibraryData data, string file, TidyResult r)
         {
+            if (Directory.Exists(file)) { TidyFolder(data, file, r); return; }
             var name = Path.GetFileNameWithoutExtension(file);
             var dir = Path.GetDirectoryName(file);
             var existing = data.Items.FirstOrDefault(i => string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase));
@@ -605,14 +662,16 @@ namespace Etagere
 
         public static bool Restore(Item it)
         {
-            if (!it.FromDesktop || !File.Exists(it.Path)) return false;
+            bool isDir = Directory.Exists(it.Path);
+            if (!it.FromDesktop || !(isDir || File.Exists(it.Path))) return false;
             var dir = string.IsNullOrEmpty(it.OriginalFolder) || !Directory.Exists(it.OriginalFolder) ? User : it.OriginalFolder;
-            var fileName = Path.GetFileName(it.Path);
+            var fileName = Path.GetFileName(it.Path.TrimEnd('\\'));
+            Action<string, string> move = (a, b) => { if (isDir) Directory.Move(a, b); else File.Move(a, b); };
             string dest;
-            try { dest = Store.UniqueIn(dir, fileName); File.Move(it.Path, dest); }
+            try { dest = Store.UniqueIn(dir, fileName); move(it.Path, dest); }
             catch
             {
-                try { dest = Store.UniqueIn(User, fileName); File.Move(it.Path, dest); }
+                try { dest = Store.UniqueIn(User, fileName); move(it.Path, dest); }
                 catch { return false; }
             }
             it.Path = dest;

@@ -12,10 +12,15 @@ INSTALLATION
   L'app se met à jour toute seule à chaque lancement.
 
 UTILISATION
-  - « Ranger mon bureau » : les raccourcis vont dans l'Étagère, et les documents
-    (PDF, Word, Excel, images…) dans le dossier Documents\Papiers importants,
-    rangés dans la catégorie « Papiers importants ».
+  - « Ranger mon bureau » : les raccourcis vont dans l'Étagère, les documents
+    (PDF, Word, Excel, images…) dans Documents\Papiers importants (catégorie
+    « Papiers importants ») et les dossiers dans Documents\Dossiers du bureau.
     Rien n'est supprimé : « Remettre sur le bureau » remet tout en place.
+  - « Nouvelle catégorie » (à gauche) : crée tes propres rayons. Clic droit
+    dessus pour la renommer, changer sa couleur ou la supprimer.
+  - « Jouer à quoi ? » : je choisis un jeu au hasard pour toi.
+  - « Mon ordre » : glisse-dépose les tuiles pour les ranger comme tu veux.
+  - Thème (en bas à gauche) : 6 couleurs au choix.
   - « Scanner » : cherche sur tout le PC les jeux et applis installés (Steam,
     Epic, GOG, Ubisoft, Xbox, menu Démarrer, dossiers de jeux sur tous les
     disques). Tu choisis ensuite ce que tu veux ajouter.

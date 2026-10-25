@@ -41,7 +41,7 @@ namespace Etagere
                     using (var fs = System.IO.File.Create(path)) enc.Save(fs);
                     win.Close();
                 };
-                win.ContentRendered += (s, e) => { if (Array.IndexOf(args, "--scan") >= 0) win.StartScan(); timer.Start(); };
+                win.ContentRendered += (s, e) => { if (Array.IndexOf(args, "--scan") >= 0) win.StartScan(); if (Array.IndexOf(args, "--random") >= 0) win.PickRandom(); timer.Start(); };
             }
             app.Run(win);
         }

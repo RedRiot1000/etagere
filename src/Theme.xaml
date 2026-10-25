@@ -14,6 +14,13 @@
         <GradientStop Color="#6366F1" Offset="0.5"/>
         <GradientStop Color="#06B6D4" Offset="1"/>
     </LinearGradientBrush>
+    <Color x:Key="Glow">#7C3AED</Color>
+    <SolidColorBrush x:Key="AccentSolid" Color="#8B5CF6"/>
+    <SolidColorBrush x:Key="AccentLight" Color="#A78BFA"/>
+    <SolidColorBrush x:Key="AccentSoft" Color="#408B5CF6"/>
+    <RadialGradientBrush x:Key="Blob1"><GradientStop Color="#4D7C3AED" Offset="0"/><GradientStop Color="#007C3AED" Offset="1"/></RadialGradientBrush>
+    <RadialGradientBrush x:Key="Blob2"><GradientStop Color="#26EC4899" Offset="0"/><GradientStop Color="#00EC4899" Offset="1"/></RadialGradientBrush>
+    <RadialGradientBrush x:Key="Blob3"><GradientStop Color="#3306B6D4" Offset="0"/><GradientStop Color="#0006B6D4" Offset="1"/></RadialGradientBrush>
     <LinearGradientBrush x:Key="NavSel" StartPoint="0,0" EndPoint="1,0">
         <GradientStop Color="#478B5CF6" Offset="0"/>
         <GradientStop Color="#0A06B6D4" Offset="1"/>
@@ -30,9 +37,9 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Grid>
-                        <Border CornerRadius="12" Background="{StaticResource Accent}">
+                        <Border CornerRadius="12" Background="{DynamicResource Accent}">
                             <Border.Effect>
-                                <DropShadowEffect Color="#7C3AED" BlurRadius="18" ShadowDepth="0" Opacity="0.45"/>
+                                <DropShadowEffect Color="{DynamicResource Glow}" BlurRadius="18" ShadowDepth="0" Opacity="0.45"/>
                             </Border.Effect>
                         </Border>
                         <Border x:Name="hl" CornerRadius="12" Background="White" Opacity="0"/>
@@ -129,7 +136,7 @@
                             <ContentPresenter/>
                         </Border>
                         <Border x:Name="bar" Width="3" Height="18" CornerRadius="2" HorizontalAlignment="Left"
-                                Background="{StaticResource Accent}" Opacity="0"/>
+                                Background="{DynamicResource Accent}" Opacity="0"/>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -137,7 +144,7 @@
                             <Setter Property="Foreground" Value="#E8E9F0"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource NavSel}"/>
+                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource NavSel}"/>
                             <Setter TargetName="bar" Property="Opacity" Value="1"/>
                             <Setter Property="Foreground" Value="White"/>
                         </Trigger>
@@ -190,7 +197,7 @@
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="track" Property="Background" Value="{StaticResource Accent}"/>
+                            <Setter TargetName="track" Property="Background" Value="{DynamicResource Accent}"/>
                             <Setter TargetName="knob" Property="HorizontalAlignment" Value="Right"/>
                             <Setter TargetName="knob" Property="Fill" Value="White"/>
                         </Trigger>
@@ -225,7 +232,7 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="#0DFFFFFF"/></Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="box" Property="Background" Value="{StaticResource Accent}"/>
+                            <Setter TargetName="box" Property="Background" Value="{DynamicResource Accent}"/>
                             <Setter TargetName="box" Property="BorderThickness" Value="0"/>
                             <Setter TargetName="tick" Property="Visibility" Value="Visible"/>
                         </Trigger>
@@ -251,7 +258,7 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="bd" Property="Background" Value="#2AFFFFFF"/>
-                            <Setter TargetName="bd" Property="BorderBrush" Value="#8B5CF6"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource AccentSolid}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -273,7 +280,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RepeatButton">
-                    <Grid Background="Transparent"><Border Height="4" CornerRadius="2" Background="{StaticResource Accent}"/></Grid>
+                    <Grid Background="Transparent"><Border Height="4" CornerRadius="2" Background="{DynamicResource Accent}"/></Grid>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -408,7 +415,7 @@
                         <Grid.RenderTransform><ScaleTransform ScaleX="1" ScaleY="1"/></Grid.RenderTransform>
 
                         <Border x:Name="glow" CornerRadius="16" Background="#1A1830" Visibility="Hidden" Opacity="0">
-                            <Border.Effect><DropShadowEffect Color="#8B5CF6" BlurRadius="30" ShadowDepth="0" Opacity="0.85"/></Border.Effect>
+                            <Border.Effect><DropShadowEffect Color="{DynamicResource Glow}" BlurRadius="30" ShadowDepth="0" Opacity="0.85"/></Border.Effect>
                         </Border>
                         <Border CornerRadius="16" Background="{Binding TileBrush}"/>
 
@@ -457,7 +464,7 @@
                             <Border Visibility="{Binding PlayVisibility}" CornerRadius="9" Background="#CC0B0B16" Padding="8,4"
                                     HorizontalAlignment="Center" VerticalAlignment="Top" Margin="8,10,8,0">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE916;" FontFamily="{StaticResource Glyph}" FontSize="10.5" Foreground="#A78BFA" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Text="&#xE916;" FontFamily="{StaticResource Glyph}" FontSize="10.5" Foreground="{DynamicResource AccentLight}" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                     <TextBlock Text="{Binding PlayInfo}" FontSize="11" Foreground="White" TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
                             </Border>
@@ -473,7 +480,7 @@
                                        Foreground="White" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"
                                        TextTrimming="CharacterEllipsis" MaxHeight="36" LineHeight="17" LineStackingStrategy="BlockLineHeight"/>
 
-                            <Border Width="56" Height="56" CornerRadius="28" Background="{StaticResource Accent}" Margin="0,0,0,24">
+                            <Border Width="56" Height="56" CornerRadius="28" Background="{DynamicResource Accent}" Margin="0,0,0,24">
                                 <TextBlock Text="&#xE768;" FontFamily="{StaticResource Glyph}" FontSize="20" Foreground="White"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" Margin="3,0,0,0"/>
                             </Border>
@@ -483,7 +490,7 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="glow" Property="Visibility" Value="Visible"/>
-                            <Setter TargetName="outline" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                            <Setter TargetName="outline" Property="BorderBrush" Value="{DynamicResource Accent}"/>
                             <Trigger.EnterActions>
                                 <BeginStoryboard>
                                     <Storyboard>

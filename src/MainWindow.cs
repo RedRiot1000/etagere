@@ -15,6 +15,8 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using Ellipse = System.Windows.Shapes.Ellipse;
+using Shape = System.Windows.Shapes.Shape;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -53,7 +55,7 @@ namespace Etagere
         public MainWindow()
         {
             Title = "Étagère";
-            Width = 1240; Height = 790; MinWidth = 900; MinHeight = 640;
+            Width = 1240; Height = 790; MinWidth = 1020; MinHeight = 640;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             Background = new SolidColorBrush(Color.FromRgb(14, 15, 26));
             WindowChrome.SetWindowChrome(this, new WindowChrome
@@ -86,14 +88,19 @@ namespace Etagere
             int newGames = ImportGames();
             if (newGames > 0 || firstRun) Save();
 
+            Themes.Apply(data.Theme);
+            Tiles.Register(data.Categories);
             Wire();
+            WireMore();
+            BuildSwatches();
+            BuildCustomNav();
 
             F<TextBlock>("VersionText").ToolTip = "Version " + AppInfo.Version;
             ChkMinimize.IsChecked = data.MinimizeOnLaunch;
             ChkStartup.IsChecked = StartupEnabled();
             ZoomSlider.Value = data.Zoom;
             ApplyZoom();
-            var sort = data.Sort == "recent" ? "SortRecent" : data.Sort == "popular" ? "SortPopular" : "SortName";
+            var sort = data.Sort == "recent" ? "SortRecent" : data.Sort == "popular" ? "SortPopular" : data.Sort == "custom" ? "SortCustom" : "SortName";
             F<RadioButton>(sort).IsChecked = true;
             loading = false;
             Refresh();
@@ -115,6 +122,9 @@ namespace Etagere
                             "J'ai trouvé " + DescribeClutter(files) + " sur ton bureau. Je peux les ranger ici pour que ton bureau soit tout propre.\n\nTu pourras tout remettre en un clic quand tu veux.",
                             "Ranger mon bureau", "Plus tard", null, _ => TidyDesktop(false));
                 }
+                else if (data.LastSeenVersion != AppInfo.Version)
+                    ShowDialog("Quoi de neuf dans la v" + AppInfo.Version + " ✨", AppInfo.WhatsNew, "Super !", null, null, null);
+                if (data.LastSeenVersion != AppInfo.Version) { data.LastSeenVersion = AppInfo.Version; Save(); }
             };
         }
 
@@ -160,7 +170,7 @@ namespace Etagere
                 var rb = F<RadioButton>(n);
                 rb.Checked += (s, e) => { view = (string)((RadioButton)s).Tag; Scroller.ScrollToTop(); Refresh(); };
             }
-            foreach (var n in new[] { "SortName", "SortRecent", "SortPopular" })
+            foreach (var n in new[] { "SortName", "SortRecent", "SortPopular", "SortCustom" })
             {
                 F<RadioButton>(n).Checked += (s, e) =>
                 {
@@ -201,7 +211,7 @@ namespace Etagere
             Cards.AddHandler(ButtonBase.ClickEvent, new RoutedEventHandler((s, e) =>
             {
                 var it = ItemOf(e.OriginalSource);
-                if (it != null) Launch(it);
+                if (it != null && !justDragged) Launch(it);
             }));
             Cards.PreviewMouseRightButtonUp += (s, e) =>
             {
@@ -215,7 +225,12 @@ namespace Etagere
             };
 
             DlgOk.Click += (s, e) => CloseDialog(true);
-            DlgCancel.Click += (s, e) => CloseDialog(false);
+            DlgCancel.Click += (s, e) =>
+            {
+                var act = dlgCancelAct;
+                CloseDialog(false);
+                if (act != null) act();
+            };
             DlgInput.KeyDown += (s, e) => { if (e.Key == Key.Enter) CloseDialog(true); };
 
             PreviewKeyDown += OnKey;
@@ -302,7 +317,7 @@ namespace Etagere
                 q = q.OrderByDescending(i => i.LastLaunch).ThenBy(i => i.Name, byName);
             else if (data.Sort == "popular")
                 q = q.OrderByDescending(i => i.LaunchCount).ThenBy(i => i.Name, byName);
-            else
+            else if (data.Sort != "custom")   // « Mon ordre » = l'ordre de la liste, réglé par glisser-déposer
                 q = q.OrderBy(i => i.Name, byName);
             if (view == "recent") q = q.Take(40);
 
@@ -320,6 +335,7 @@ namespace Etagere
             CountApps.Text = data.Items.Count(i => i.Category == Tiles.Apps).ToString();
             CountOther.Text = data.Items.Count(i => i.Category == Tiles.Other).ToString();
             CountPapers.Text = data.Items.Count(i => i.Category == Tiles.Papers).ToString();
+            foreach (var kv in customCounts) kv.Value.Text = data.Items.Count(i => i.Category == kv.Key).ToString();
 
             bool empty = data.Items.Count == 0;
             EmptyState.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
@@ -457,10 +473,10 @@ namespace Etagere
                 ShowToast(it.Favorite ? it.Name + " ajouté aux favoris" : it.Name + " retiré des favoris");
             });
             sep();
-            foreach (var cat in Tiles.All)
+            foreach (var cat in Tiles.Names())
             {
                 var c = cat;
-                var glyph = c == it.Category ? "" : c == Tiles.Games ? "" : c == Tiles.Apps ? "" : c == Tiles.Papers ? "" : "";
+                var glyph = c == it.Category ? "" : c == Tiles.Games ? "" : c == Tiles.Apps ? "" : c == Tiles.Papers ? "" : c == Tiles.Other ? "" : "";
                 var mi = add(glyph, "Ranger dans « " + c + " »", () =>
                 {
                     it.Category = c;
@@ -483,6 +499,7 @@ namespace Etagere
             });
             add("", "Retirer de l'Étagère", () => ShowDialog("Retirer « " + it.Name + " » ?",
                 ShortcutInfo.IsDocument(it.Path) ? "Le fichier n'est pas supprimé : il reste là où il est" + (it.Path.StartsWith(Store.PapersDir, StringComparison.OrdinalIgnoreCase) ? " (Documents\\Papiers importants)." : ".")
+                : Directory.Exists(it.Path) ? "Le dossier n'est pas supprimé : il reste là où il est."
                 : it.FromDesktop ? "Le raccourci part à la corbeille. Le programme lui-même n'est pas désinstallé."
                                : "Il ne sera plus affiché ici. Le programme lui-même n'est pas désinstallé.",
                 "Retirer", "Annuler", null, _ => RemoveItem(it)));
@@ -596,6 +613,232 @@ namespace Etagere
                 if (it.PosterPath != null) ReloadArt(it);
             }
             return added;
+        }
+
+        // ───────────────────────── Thèmes, catégories perso, hasard, réorganisation ─────────────────────────
+
+        readonly Dictionary<string, TextBlock> customCounts = new Dictionary<string, TextBlock>();
+        Item lastRandom;
+        Point dragStart;
+        Item dragItem;
+        bool justDragged;
+
+        void WireMore()
+        {
+            F<Button>("BtnNewCat").Click += (s, e) => ShowDialog("Nouvelle catégorie", "Donne-lui un nom (ex. Jeux entre potes, Travail, Montage vidéo…).",
+                "Créer", "Annuler", "", name => CreateCategory(name));
+            F<Button>("BtnRandom").Click += (s, e) => PickRandom();
+
+            // Glisser-déposer une tuile sur une autre pour la déplacer
+            Cards.AllowDrop = true;
+            Cards.PreviewMouseLeftButtonDown += (s, e) =>
+            {
+                justDragged = false;
+                dragStart = e.GetPosition(Cards);
+                dragItem = ItemOf(e.OriginalSource);
+            };
+            Cards.PreviewMouseMove += (s, e) =>
+            {
+                if (dragItem == null || e.LeftButton != MouseButtonState.Pressed) return;
+                var d = e.GetPosition(Cards) - dragStart;
+                if (Math.Abs(d.X) < 10 && Math.Abs(d.Y) < 10) return;
+                var it = dragItem;
+                dragItem = null;
+                justDragged = true;
+                var card = Cards.ItemContainerGenerator.ContainerFromItem(it) as UIElement;
+                if (card != null) card.Opacity = 0.35;
+                DragDrop.DoDragDrop(Cards, new DataObject(typeof(Item), it), DragDropEffects.Move);
+                if (card != null) card.Opacity = 1;
+            };
+            Cards.DragOver += (s, e) =>
+            {
+                if (!e.Data.GetDataPresent(typeof(Item))) return;
+                e.Effects = DragDropEffects.Move;
+                e.Handled = true;
+            };
+            Cards.Drop += (s, e) =>
+            {
+                if (!e.Data.GetDataPresent(typeof(Item))) return;
+                e.Handled = true;
+                var src = (Item)e.Data.GetData(typeof(Item));
+                var target = ItemOf(e.OriginalSource);
+                if (target == null || target == src) return;
+                MoveItem(src, target);
+            };
+        }
+
+        void MoveItem(Item src, Item target)
+        {
+            // Premier déplacement : on part de l'ordre affiché actuellement pour ne pas tout mélanger
+            if (data.Sort != "custom")
+            {
+                var byName = StringComparer.Create(CultureInfo.CurrentCulture, true);
+                IEnumerable<Item> all = data.Items;
+                if (data.Sort == "recent") all = all.OrderByDescending(i => i.LastLaunch).ThenBy(i => i.Name, byName);
+                else if (data.Sort == "popular") all = all.OrderByDescending(i => i.LaunchCount).ThenBy(i => i.Name, byName);
+                else all = all.OrderBy(i => i.Name, byName);
+                var ordered = all.ToList();
+                data.Items.Clear();
+                data.Items.AddRange(ordered);
+            }
+            int from = data.Items.IndexOf(src), to = data.Items.IndexOf(target);
+            data.Items.RemoveAt(from);
+            data.Items.Insert(to, src);
+            if (data.Sort != "custom")
+            {
+                F<RadioButton>("SortCustom").IsChecked = true;   // déclenche Save + Refresh
+                ShowToast("Tri « Mon ordre » activé : range tes tuiles comme tu veux");
+            }
+            else { Save(); Refresh(); }
+        }
+
+        void BuildSwatches()
+        {
+            var panel = F<StackPanel>("ThemeSwatches");
+            panel.Children.Clear();
+            foreach (var t in Themes.All)
+            {
+                var theme = t;
+                bool current = Themes.Find(data.Theme).Name == theme.Name;
+                var b = new Button
+                {
+                    Width = 22, Height = 22, Margin = new Thickness(5, 0, 0, 0), Cursor = Cursors.Hand, ToolTip = theme.Name,
+                    Template = SwatchTemplate(Themes.Swatch(theme), current)
+                };
+                b.Click += (s, e) =>
+                {
+                    data.Theme = theme.Name;
+                    Themes.Apply(theme.Name);
+                    Save();
+                    BuildSwatches();
+                    ShowToast("Thème « " + theme.Name + " » appliqué");
+                };
+                panel.Children.Add(b);
+            }
+        }
+
+        static ControlTemplate SwatchTemplate(Brush fill, bool current)
+        {
+            var ring = new FrameworkElementFactory(typeof(Ellipse));
+            ring.SetValue(Shape.StrokeProperty, current ? Brushes.White : new SolidColorBrush(Color.FromArgb(0x30, 255, 255, 255)));
+            ring.SetValue(Shape.StrokeThicknessProperty, current ? 2.0 : 1.0);
+            ring.SetValue(Shape.FillProperty, Brushes.Transparent);
+            var dot = new FrameworkElementFactory(typeof(Ellipse));
+            dot.SetValue(Shape.FillProperty, fill);
+            dot.SetValue(FrameworkElement.MarginProperty, new Thickness(current ? 4 : 2));
+            var grid = new FrameworkElementFactory(typeof(Grid));
+            grid.AppendChild(ring);
+            grid.AppendChild(dot);
+            return new ControlTemplate(typeof(Button)) { VisualTree = grid };
+        }
+
+        void BuildCustomNav()
+        {
+            var panel = F<StackPanel>("CustomCats");
+            panel.Children.Clear();
+            customCounts.Clear();
+            foreach (var c in data.Categories)
+            {
+                var cat = c;
+                var grid = new Grid();
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition());
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                grid.Children.Add(new Ellipse { Width = 11, Height = 11, Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString(cat.Color)), HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(2, 0, 0, 0) });
+                var label = new TextBlock { Text = cat.Name, TextTrimming = TextTrimming.CharacterEllipsis };
+                Grid.SetColumn(label, 1);
+                grid.Children.Add(label);
+                var count = new TextBlock { FontSize = 11.5 };
+                var badge = new Border { CornerRadius = new CornerRadius(8), Background = new SolidColorBrush(Color.FromArgb(0x14, 255, 255, 255)), Padding = new Thickness(7, 1, 7, 1), Child = count };
+                Grid.SetColumn(badge, 2);
+                grid.Children.Add(badge);
+                customCounts[cat.Name] = count;
+
+                var rb = new RadioButton { Style = (Style)FindResource("Nav"), Tag = cat.Name, Content = grid, IsChecked = view == cat.Name };
+                rb.Checked += (s, e) => { view = cat.Name; Scroller.ScrollToTop(); Refresh(); };
+                rb.MouseRightButtonUp += (s, e) =>
+                {
+                    var m = new ContextMenu();
+                    Action<string, string, Action> add = (glyph, header, act) =>
+                    {
+                        var mi = new MenuItem { Header = header, Icon = new TextBlock { Text = glyph, FontFamily = (FontFamily)FindResource("Glyph"), FontSize = 14, Foreground = (Brush)FindResource("SubText") } };
+                        mi.Click += (s2, e2) => act();
+                        m.Items.Add(mi);
+                    };
+                    add("", "Renommer", () => ShowDialog("Renommer la catégorie", null, "Renommer", "Annuler", cat.Name, n => RenameCategory(cat, n)));
+                    add("", "Changer de couleur", () =>
+                    {
+                        int i = Array.IndexOf(Tiles.Palette, cat.Color);
+                        cat.Color = Tiles.Palette[(i + 1) % Tiles.Palette.Length];
+                        CategoriesChanged();
+                    });
+                    add("", "Supprimer la catégorie", () => ShowDialog("Supprimer « " + cat.Name + " » ?",
+                        "Ce qu'elle contient part dans « Autres ». Rien n'est désinstallé ni supprimé.", "Supprimer", "Annuler", null, _ => DeleteCategory(cat)));
+                    m.PlacementTarget = rb;
+                    m.IsOpen = true;
+                    e.Handled = true;
+                };
+                panel.Children.Add(rb);
+            }
+        }
+
+        void CategoriesChanged()
+        {
+            Tiles.Register(data.Categories);
+            foreach (var it in data.Items) it.Category = it.Category;   // rafraîchit la couleur des tuiles
+            Save();
+            BuildCustomNav();
+            Refresh();
+        }
+
+        bool NameTaken(string name)
+        {
+            return Tiles.All.Concat(new[] { "Tout", "Favoris", "Récents" }).Any(n => string.Equals(n, name, StringComparison.CurrentCultureIgnoreCase))
+                || data.Categories.Any(c => string.Equals(c.Name, name, StringComparison.CurrentCultureIgnoreCase));
+        }
+
+        void CreateCategory(string name)
+        {
+            name = (name ?? "").Trim();
+            if (name == "") return;
+            if (NameTaken(name)) { ShowToast("Cette catégorie existe déjà"); return; }
+            data.Categories.Add(new CustomCategory { Name = name, Color = Tiles.Palette[data.Categories.Count % Tiles.Palette.Length] });
+            CategoriesChanged();
+            ShowToast("Catégorie « " + name + " » créée : clic droit sur une tuile ▸ Ranger dans…");
+        }
+
+        void RenameCategory(CustomCategory cat, string name)
+        {
+            name = (name ?? "").Trim();
+            if (name == "" || name == cat.Name) return;
+            if (NameTaken(name)) { ShowToast("Ce nom est déjà pris"); return; }
+            foreach (var it in data.Items.Where(i => i.Category == cat.Name)) it.Category = name;
+            if (view == cat.Name) view = name;
+            cat.Name = name;
+            CategoriesChanged();
+        }
+
+        void DeleteCategory(CustomCategory cat)
+        {
+            foreach (var it in data.Items.Where(i => i.Category == cat.Name)) it.Category = Tiles.Other;
+            data.Categories.Remove(cat);
+            if (view == cat.Name) NavTo("all");
+            CategoriesChanged();
+            ShowToast("Catégorie supprimée");
+        }
+
+        // « Jouer à quoi ? » : un jeu au hasard, de préférence pas celui d'hier soir
+        public void PickRandom()
+        {
+            var games = data.Items.Where(i => i.Category == Tiles.Games).ToList();
+            if (games.Count == 0) { ShowToast("Ajoute d'abord des jeux (bouton Scanner)"); return; }
+            var pool = games.Where(g => g != lastRandom).ToList();
+            if (pool.Count == 0) pool = games;
+            var pick = pool[new Random().Next(pool.Count)];
+            lastRandom = pick;
+            var info = pick.LastSessionSeconds > 0 ? "Dernière partie : " + Fmt.Duration(pick.LastSessionSeconds) + ", " + Fmt.When(pick.LastPlayed) + "."
+                : pick.LastLaunch > 0 ? "Lancé " + Fmt.When(pick.LastLaunch) + "." : "Tu ne l'as pas encore lancé depuis l'Étagère.";
+            ShowDialog("Et si tu jouais à… " + pick.Name + " ?", info, "Jouer", "Un autre", null, _ => Launch(pick), PickRandom, pick.Poster ?? ShellIcons.LoadImage(pick.PosterPath, 300));
         }
 
         // ───────────────────────── Scan de tout le PC ─────────────────────────
@@ -810,8 +1053,20 @@ namespace Etagere
 
         // ───────────────────────── Dialogue et notification ─────────────────────────
 
+        Action dlgCancelAct;
+
         void ShowDialog(string title, string text, string ok, string cancel, string input, Action<string> onOk)
         {
+            ShowDialog(title, text, ok, cancel, input, onOk, null, null);
+        }
+
+        // onCancel : seulement quand on clique le 2e bouton (pas avec Échap) ; image : jaquette affichée en haut
+        void ShowDialog(string title, string text, string ok, string cancel, string input, Action<string> onOk, Action onCancel, ImageSource image)
+        {
+            dlgCancelAct = onCancel;
+            var img = F<Border>("DlgImage");
+            ((ImageBrush)img.Background).ImageSource = image;
+            img.Visibility = image == null ? Visibility.Collapsed : Visibility.Visible;
             DlgTitle.Text = title;
             DlgText.Text = text ?? "";
             DlgText.Visibility = string.IsNullOrEmpty(text) ? Visibility.Collapsed : Visibility.Visible;
@@ -836,6 +1091,7 @@ namespace Etagere
             Overlay.Visibility = Visibility.Collapsed;
             var act = dlgOk;
             dlgOk = null;
+            dlgCancelAct = null;
             if (ok && act != null) act(DlgInput.Text);
         }
 
