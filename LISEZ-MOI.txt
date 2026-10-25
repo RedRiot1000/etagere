@@ -1,25 +1,33 @@
 ÉTAGÈRE — ton bureau enfin rangé
 ================================
 
-Étagère range tes jeux et tes applications dans une jolie fenêtre,
-et les lance d'un clic. Ton bureau reste propre.
+Étagère range tes jeux, tes applications et tes papiers importants dans une
+jolie fenêtre, et les lance d'un clic. Ton bureau reste propre.
 
 INSTALLATION
   Rien à installer. Mets Etagere.exe où tu veux (par exemple dans Documents),
   puis double-clique dessus. Si Windows affiche « Windows a protégé votre
   ordinateur », clique sur « Informations complémentaires » puis « Exécuter
   quand même » (l'app n'est pas signée, c'est normal pour un programme maison).
+  L'app se met à jour toute seule à chaque lancement.
 
 UTILISATION
-  - « Ranger mon bureau » : tous les raccourcis du bureau vont dans l'Étagère.
-    Rien n'est supprimé : « Remettre mes raccourcis sur le bureau » les remet.
-  - « Mes jeux » : trouve automatiquement les jeux Steam et Epic Games installés
-    (avec leurs jaquettes Steam).
-  - « Ajouter » ou glisser-déposer un programme dans la fenêtre pour l'ajouter.
+  - « Ranger mon bureau » : les raccourcis vont dans l'Étagère, et les documents
+    (PDF, Word, Excel, images…) dans le dossier Documents\Papiers importants,
+    rangés dans la catégorie « Papiers importants ».
+    Rien n'est supprimé : « Remettre sur le bureau » remet tout en place.
+  - « Scanner » : cherche sur tout le PC les jeux et applis installés (Steam,
+    Epic, GOG, Ubisoft, Xbox, menu Démarrer, dossiers de jeux sur tous les
+    disques). Tu choisis ensuite ce que tu veux ajouter.
+  - « Ajouter » ou glisser-déposer un programme ou un document dans la fenêtre.
   - Clic sur une tuile = lancer. Clic droit = favori, catégorie, renommer, retirer.
+  - Temps de jeu : quand tu quittes un jeu lancé depuis l'Étagère, elle revient
+    et affiche la durée de la partie. Survole une tuile pour voir ta dernière
+    session.
   - Tape directement au clavier pour chercher, Entrée lance le premier résultat.
   - Ctrl + molette (ou le curseur en haut à droite) : taille des tuiles.
   - « Démarrer avec Windows » : l'Étagère s'ouvre (réduite) au démarrage.
 
-OÙ SONT MES RACCOURCIS ?
-  Dans %APPDATA%\Etagere\Raccourcis (et la liste dans etagere.json).
+OÙ SONT MES FICHIERS ?
+  Raccourcis : %APPDATA%\Etagere\Raccourcis (et la liste dans etagere.json).
+  Documents  : Documents\Papiers importants.

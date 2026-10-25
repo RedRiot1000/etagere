@@ -57,13 +57,13 @@
                             <ColumnDefinition Width="8"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <Button x:Name="BtnFindGames" Style="{StaticResource Ghost}" Padding="8,9" ToolTip="Chercher les jeux installés (Steam, Epic Games)">
+                        <Button x:Name="BtnFindGames" Style="{StaticResource Ghost}" Padding="8,9" ToolTip="Chercher sur tout le PC les jeux et applis installés (Steam, Epic, GOG, Ubisoft, Xbox, menu Démarrer, dossiers de jeux)">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE7FC;" FontFamily="{StaticResource Glyph}" FontSize="13" VerticalAlignment="Center" Margin="0,0,7,0"/>
-                                <TextBlock Text="Mes jeux" FontSize="12.5"/>
+                                <TextBlock Text="&#xE721;" FontFamily="{StaticResource Glyph}" FontSize="13" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                <TextBlock Text="Scanner" FontSize="12.5"/>
                             </StackPanel>
                         </Button>
-                        <Button x:Name="BtnAdd" Grid.Column="2" Style="{StaticResource Ghost}" Padding="8,9" ToolTip="Ajouter un programme (.exe) ou un raccourci">
+                        <Button x:Name="BtnAdd" Grid.Column="2" Style="{StaticResource Ghost}" Padding="8,9" ToolTip="Ajouter un programme, un raccourci ou un document">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xE710;" FontFamily="{StaticResource Glyph}" FontSize="13" VerticalAlignment="Center" Margin="0,0,7,0"/>
                                 <TextBlock Text="Ajouter" FontSize="12.5"/>
@@ -121,6 +121,14 @@
                             <TextBlock Text="&#xE71D;" FontFamily="{StaticResource Glyph}" FontSize="15" VerticalAlignment="Center"/>
                             <TextBlock Grid.Column="1" Text="Applications"/>
                             <Border Grid.Column="2" CornerRadius="8" Background="#14FFFFFF" Padding="7,1"><TextBlock x:Name="CountApps" FontSize="11.5"/></Border>
+                        </Grid>
+                    </RadioButton>
+                    <RadioButton x:Name="NavPapers" Style="{StaticResource Nav}" Tag="Papiers importants">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="&#xE8A5;" FontFamily="{StaticResource Glyph}" FontSize="15" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Papiers importants"/>
+                            <Border Grid.Column="2" CornerRadius="8" Background="#14FFFFFF" Padding="7,1"><TextBlock x:Name="CountPapers" FontSize="11.5"/></Border>
                         </Grid>
                     </RadioButton>
                     <RadioButton x:Name="NavOther" Style="{StaticResource Nav}" Tag="Autres">
@@ -198,7 +206,7 @@
                     <ItemsControl.LayoutTransform><ScaleTransform x:Name="ZoomScale"/></ItemsControl.LayoutTransform>
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate><Button Style="{StaticResource Card}" Margin="9" ToolTip="{Binding Name}"/></DataTemplate>
+                        <DataTemplate><Button Style="{StaticResource Card}" Margin="9" ToolTip="{Binding TooltipText}"/></DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </ScrollViewer>
@@ -217,7 +225,7 @@
                 <TextBlock Text="Ton étagère est vide" FontSize="28" FontWeight="Bold" Foreground="{StaticResource Text}"
                            HorizontalAlignment="Center" Margin="0,30,0,10"/>
                 <TextBlock FontSize="14.5" Foreground="{StaticResource SubText}" TextAlignment="Center" TextWrapping="Wrap" LineHeight="22"
-                           Text="Range tous les raccourcis de ton bureau ici en un clic, ou laisse-moi chercher tes jeux Steam et Epic Games."/>
+                           Text="Range ton bureau ici en un clic (raccourcis et documents), ou laisse-moi chercher tous les jeux et applis installés sur ton PC."/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,26,0,0">
                     <Button x:Name="BtnEmptyTidy" Style="{StaticResource Primary}" Padding="20,12" Margin="0,0,10,0">
                         <StackPanel Orientation="Horizontal">
@@ -227,8 +235,8 @@
                     </Button>
                     <Button x:Name="BtnEmptyGames" Style="{StaticResource Ghost}" Padding="20,12">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE7FC;" FontFamily="{StaticResource Glyph}" FontSize="14" VerticalAlignment="Center" Margin="0,0,9,0"/>
-                            <TextBlock Text="Trouver mes jeux"/>
+                            <TextBlock Text="&#xE721;" FontFamily="{StaticResource Glyph}" FontSize="14" VerticalAlignment="Center" Margin="0,0,9,0"/>
+                            <TextBlock Text="Scanner mon PC"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>
@@ -236,6 +244,90 @@
                            Foreground="{StaticResource FaintText}" HorizontalAlignment="Center" Margin="0,22,0,0"/>
             </StackPanel>
         </Grid>
+    </Grid>
+
+    <!-- Scan du PC : choix de ce qu'on ajoute -->
+    <Grid x:Name="ScanPanel" Visibility="Collapsed">
+        <Rectangle Fill="#C8060610"/>
+        <Border Width="780" Margin="24,36" MaxHeight="760" CornerRadius="20" Background="#1C1A2D" BorderBrush="#26FFFFFF" BorderThickness="1"
+                HorizontalAlignment="Center">
+            <Border.Effect><DropShadowEffect Color="Black" BlurRadius="60" ShadowDepth="0" Opacity="0.6"/></Border.Effect>
+            <Grid Margin="28,24,28,22">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <StackPanel>
+                    <TextBlock x:Name="ScanTitle" FontSize="21" FontWeight="Bold" Foreground="{StaticResource Text}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="ScanSub" FontSize="13.5" Foreground="{StaticResource SubText}" TextWrapping="Wrap" Margin="0,6,0,0"
+                               Text="Les jeux sont cochés d'office. Clique sur l'étiquette à droite si je me suis trompé de catégorie."/>
+                </StackPanel>
+                <Grid x:Name="ScanTools" Grid.Row="1" Margin="0,16,0,10">
+                    <Border Background="#0BFFFFFF" CornerRadius="11" Padding="3" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="ScanTabGames" Style="{StaticResource Chip}" GroupName="scantab" IsChecked="True"/>
+                            <RadioButton x:Name="ScanTabApps" Style="{StaticResource Chip}" GroupName="scantab"/>
+                        </StackPanel>
+                    </Border>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button x:Name="BtnScanAll" Style="{StaticResource Link}" Content="Tout cocher" FontSize="12.5" Margin="0,0,16,0"/>
+                        <Button x:Name="BtnScanNone" Style="{StaticResource Link}" Content="Tout décocher" FontSize="12.5"/>
+                    </StackPanel>
+                </Grid>
+                <Grid Grid.Row="2" MinHeight="200">
+                    <ScrollViewer x:Name="ScanScroller" VerticalScrollBarVisibility="Auto" Margin="-6,0,-14,0" Padding="0,0,8,0">
+                        <ScrollViewer.Resources>
+                            <Style TargetType="ScrollBar" BasedOn="{StaticResource ThinScroll}"/>
+                        </ScrollViewer.Resources>
+                        <ItemsControl x:Name="ScanList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox Style="{StaticResource RowCheck}" IsChecked="{Binding Selected, Mode=TwoWay}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="48"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid Width="36" Height="36" HorizontalAlignment="Left">
+                                                <Border CornerRadius="9" Background="{Binding TileBrush}"/>
+                                                <TextBlock Text="{Binding Initial}" Visibility="{Binding InitialVisibility}" FontSize="16" FontWeight="Bold"
+                                                           Foreground="#CCFFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                <Image Source="{Binding Icon}" Width="28" Height="28" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                                <Border CornerRadius="9">
+                                                    <Border.Background><ImageBrush ImageSource="{Binding Poster}" Stretch="UniformToFill"/></Border.Background>
+                                                </Border>
+                                            </Grid>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" FontSize="14" Foreground="{StaticResource Text}" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Source}" FontSize="11.5" Foreground="{StaticResource FaintText}"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="2" Style="{StaticResource Pill}" Tag="cat" Content="{Binding Category}"
+                                                    ToolTip="Clique pour changer de catégorie" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </CheckBox>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    <StackPanel x:Name="ScanBusy" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock x:Name="ScanSpinner" Text="&#xE895;" FontFamily="{StaticResource Glyph}" FontSize="38" Foreground="#A78BFA"
+                                   HorizontalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                            <TextBlock.RenderTransform><RotateTransform/></TextBlock.RenderTransform>
+                        </TextBlock>
+                        <TextBlock x:Name="ScanStatus" FontSize="14" Foreground="{StaticResource SubText}" HorizontalAlignment="Center" Margin="0,18,0,0"/>
+                    </StackPanel>
+                    <TextBlock x:Name="ScanEmpty" Visibility="Collapsed" FontSize="14" Foreground="{StaticResource SubText}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" Text="Rien dans cette liste."/>
+                </Grid>
+                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                    <Button x:Name="BtnScanCancel" Style="{StaticResource Ghost}" Content="Annuler" Margin="0,0,10,0" MinWidth="100"/>
+                    <Button x:Name="BtnScanAdd" Style="{StaticResource Primary}" Content="Ajouter" MinWidth="150"/>
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 
     <!-- Boîte de dialogue -->

@@ -38,9 +38,56 @@ namespace Etagere
         const int SHIL_EXTRALARGE = 2, SHIL_JUMBO = 4;
         static Guid IID_IImageList = new Guid("46EB5926-582E-4017-9FDF-E8998DAA0950");
 
+        [ComImport, Guid("bcc18b79-ba16-442f-80c4-8a59c30c463b"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        interface IShellItemImageFactory
+        {
+            [PreserveSig] int GetImage(SIZE size, int flags, out IntPtr phbm);
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct SIZE { public int cx, cy; }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct BITMAP { public int bmType, bmWidth, bmHeight, bmWidthBytes; public short bmPlanes, bmBitsPixel; public IntPtr bmBits; }
+
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
+        static extern void SHCreateItemFromParsingName(string path, IntPtr pbc, ref Guid riid,
+            [MarshalAs(UnmanagedType.Interface)] out IShellItemImageFactory factory);
+
+        [DllImport("gdi32.dll")] static extern int GetObject(IntPtr h, int size, out BITMAP bmp);
+        [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr h);
+
+        // Icône d'un élément du shell (ex. « shell:AppsFolder\Microsoft.WindowsCalculator_…!App »)
+        static ImageSource FromParsingName(string name)
+        {
+            var iid = typeof(IShellItemImageFactory).GUID;
+            IShellItemImageFactory f;
+            SHCreateItemFromParsingName(name, IntPtr.Zero, ref iid, out f);
+            IntPtr hbm;
+            if (f.GetImage(new SIZE { cx = 256, cy = 256 }, 0x4 /* icône seulement */, out hbm) != 0 || hbm == IntPtr.Zero) return null;
+            try
+            {
+                BITMAP bm;
+                GetObject(hbm, Marshal.SizeOf(typeof(BITMAP)), out bm);
+                if (bm.bmBits == IntPtr.Zero || bm.bmBitsPixel != 32) return null;
+                int stride = bm.bmWidthBytes, h = Math.Abs(bm.bmHeight);
+                BitmapSource src = BitmapSource.Create(bm.bmWidth, h, 96, 96, PixelFormats.Pbgra32, null, bm.bmBits, stride * h, stride);
+                // Les DIB sont rangés de bas en haut
+                if (bm.bmHeight > 0) src = new TransformedBitmap(src, new ScaleTransform(1, -1));
+                src.Freeze();
+                return src;
+            }
+            finally { DeleteObject(hbm); }
+        }
+
         public static ImageSource Load(string source)
         {
-            if (string.IsNullOrEmpty(source) || source.Contains("://")) return null;
+            if (string.IsNullOrEmpty(source)) return null;
+            if (source.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+            {
+                try { return FromParsingName(source); } catch { return null; }
+            }
+            if (source.Contains("://")) return null;
             try
             {
                 var ext = Path.GetExtension(source).ToLowerInvariant();

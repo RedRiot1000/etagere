@@ -1,6 +1,6 @@
 # Étagère
 
-Un lanceur Windows qui range tous les raccourcis du bureau et les jeux Steam / Epic Games dans une jolie fenêtre, et les lance d'un clic.
+Un lanceur Windows qui range le bureau (raccourcis et papiers importants), trouve tous les jeux et applis installés sur le PC (Steam, Epic, GOG, Ubisoft, Xbox, menu Démarrer…) et les lance d'un clic, avec le temps de jeu de chaque partie.
 
 ![Aperçu](apercu.png)
 

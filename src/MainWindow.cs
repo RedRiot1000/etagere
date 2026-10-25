@@ -39,7 +39,7 @@ namespace Etagere
         ItemsControl Cards;
         TextBox SearchBox, DlgInput;
         TextBlock SearchHint, TitleText, SubtitleText, NoResult, DlgTitle, DlgText, ToastText;
-        TextBlock CountAll, CountFav, CountGames, CountApps, CountOther;
+        TextBlock CountAll, CountFav, CountGames, CountApps, CountPapers, CountOther;
         FrameworkElement Overlay, EmptyState, Toast, DlgInputBorder;
         Border SearchBorder;
         Button DlgCancel, DlgOk, BtnMax;
@@ -53,7 +53,7 @@ namespace Etagere
         public MainWindow()
         {
             Title = "Étagère";
-            Width = 1240; Height = 790; MinWidth = 900; MinHeight = 580;
+            Width = 1240; Height = 790; MinWidth = 900; MinHeight = 640;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             Background = new SolidColorBrush(Color.FromRgb(14, 15, 26));
             WindowChrome.SetWindowChrome(this, new WindowChrome
@@ -73,7 +73,7 @@ namespace Etagere
             NoResult = F<TextBlock>("NoResult"); DlgTitle = F<TextBlock>("DlgTitle"); DlgText = F<TextBlock>("DlgText");
             ToastText = F<TextBlock>("ToastText");
             CountAll = F<TextBlock>("CountAll"); CountFav = F<TextBlock>("CountFav"); CountGames = F<TextBlock>("CountGames");
-            CountApps = F<TextBlock>("CountApps"); CountOther = F<TextBlock>("CountOther");
+            CountApps = F<TextBlock>("CountApps"); CountOther = F<TextBlock>("CountOther"); CountPapers = F<TextBlock>("CountPapers");
             Overlay = F<FrameworkElement>("Overlay"); EmptyState = F<FrameworkElement>("EmptyState"); Toast = F<FrameworkElement>("Toast");
             DlgInputBorder = F<FrameworkElement>("DlgInputBorder"); SearchBorder = F<Border>("SearchBorder");
             DlgCancel = F<Button>("DlgCancel"); DlgOk = F<Button>("DlgOk"); BtnMax = F<Button>("BtnMax");
@@ -109,10 +109,10 @@ namespace Etagere
                 if (newGames > 0) ShowToast(Plural(newGames, "jeu trouvé", "jeux trouvés") + " sur ton PC");
                 if (firstRun)
                 {
-                    var n = Desk.FindShortcuts().Count;
-                    if (n > 0)
+                    var files = Desk.FindClutter();
+                    if (files.Count > 0)
                         ShowDialog("Bienvenue dans l'Étagère !",
-                            "J'ai trouvé " + Plural(n, "raccourci", "raccourcis") + " sur ton bureau. Je peux les ranger ici pour que ton bureau soit tout propre.\n\nTu pourras les remettre en un clic quand tu veux.",
+                            "J'ai trouvé " + DescribeClutter(files) + " sur ton bureau. Je peux les ranger ici pour que ton bureau soit tout propre.\n\nTu pourras tout remettre en un clic quand tu veux.",
                             "Ranger mon bureau", "Plus tard", null, _ => TidyDesktop(false));
                 }
             };
@@ -155,7 +155,7 @@ namespace Etagere
             BtnMax.Click += (s, e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
             F<Button>("BtnClose").Click += (s, e) => Close();
 
-            foreach (var n in new[] { "NavAll", "NavFav", "NavRecent", "NavGames", "NavApps", "NavOther" })
+            foreach (var n in new[] { "NavAll", "NavFav", "NavRecent", "NavGames", "NavApps", "NavPapers", "NavOther" })
             {
                 var rb = F<RadioButton>(n);
                 rb.Checked += (s, e) => { view = (string)((RadioButton)s).Tag; Scroller.ScrollToTop(); Refresh(); };
@@ -171,8 +171,9 @@ namespace Etagere
 
             F<Button>("BtnTidy").Click += (s, e) => TidyDesktop(true);
             F<Button>("BtnEmptyTidy").Click += (s, e) => TidyDesktop(true);
-            F<Button>("BtnFindGames").Click += (s, e) => FindGames();
-            F<Button>("BtnEmptyGames").Click += (s, e) => FindGames();
+            F<Button>("BtnFindGames").Click += (s, e) => StartScan();
+            F<Button>("BtnEmptyGames").Click += (s, e) => StartScan();
+            WireScan();
             F<Button>("BtnAdd").Click += (s, e) => BrowseAdd();
             F<Button>("BtnRestore").Click += (s, e) => RestoreAll();
 
@@ -220,7 +221,7 @@ namespace Etagere
             PreviewKeyDown += OnKey;
             TextInput += (s, e) =>
             {
-                if (Overlay.Visibility == Visibility.Visible || Keyboard.FocusedElement is TextBox) return;
+                if (Overlay.Visibility == Visibility.Visible || ScanPanel.Visibility == Visibility.Visible || Keyboard.FocusedElement is TextBox) return;
                 if (string.IsNullOrEmpty(e.Text) || char.IsControl(e.Text[0]) || e.Text == " ") return;
                 SearchBox.Focus();
                 SearchBox.Text += e.Text;
@@ -244,6 +245,11 @@ namespace Etagere
 
         void OnKey(object sender, KeyEventArgs e)
         {
+            if (Overlay.Visibility != Visibility.Visible && ScanPanel.Visibility == Visibility.Visible)
+            {
+                if (e.Key == Key.Escape && !scanning) { CloseScan(); e.Handled = true; }
+                return;
+            }
             if (Overlay.Visibility == Visibility.Visible)
             {
                 if (e.Key == Key.Escape) { CloseDialog(false); e.Handled = true; }
@@ -306,12 +312,14 @@ namespace Etagere
             TitleText.Text = title;
             SubtitleText.Text = shown.Count == 0 ? "Rien ici pour l'instant"
                 : view == "Jeux" ? Plural(shown.Count, "jeu", "jeux")
+                : view == Tiles.Papers ? Plural(shown.Count, "document", "documents")
                 : Plural(shown.Count, "élément", "éléments");
             CountAll.Text = data.Items.Count.ToString();
             CountFav.Text = data.Items.Count(i => i.Favorite).ToString();
             CountGames.Text = data.Items.Count(i => i.Category == Tiles.Games).ToString();
             CountApps.Text = data.Items.Count(i => i.Category == Tiles.Apps).ToString();
             CountOther.Text = data.Items.Count(i => i.Category == Tiles.Other).ToString();
+            CountPapers.Text = data.Items.Count(i => i.Category == Tiles.Papers).ToString();
 
             bool empty = data.Items.Count == 0;
             EmptyState.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
@@ -325,6 +333,7 @@ namespace Etagere
                 NoResult.Text = search.Length > 0 ? "Aucun résultat pour « " + search + " »"
                     : view == "fav" ? "Pas encore de favoris.\nFais un clic droit sur une tuile ▸ Ajouter aux favoris."
                     : view == "recent" ? "Lance un jeu ou une appli : il apparaîtra ici."
+                    : view == Tiles.Papers ? "Aucun papier important pour l'instant.\nRange ton bureau, ou glisse ici tes PDF, scans et factures."
                     : "Rien dans cette catégorie.\nClic droit sur une tuile ▸ Ranger dans…";
                 NoResult.Visibility = Visibility.Visible;
             }
@@ -365,7 +374,9 @@ namespace Etagere
             var p = it.Path;
             try
             {
-                if (IsUri(p))
+                if (p.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+                    Process.Start("explorer.exe", "\"" + p + "\"");
+                else if (IsUri(p))
                     Process.Start(new ProcessStartInfo(p) { UseShellExecute = true });
                 else if (File.Exists(p) || Directory.Exists(p))
                 {
@@ -399,6 +410,27 @@ namespace Etagere
                 t.Start();
             }
             if (view == "recent" || data.Sort != "name") Refresh();
+            if (it.Category == Tiles.Games) PlayTracker.Start(it, Dispatcher, OnSessionEnd);
+        }
+
+        // Le jeu vient d'être quitté : on revient au premier plan avec le résumé de la partie
+        void OnSessionEnd(Item it, long seconds)
+        {
+            it.LastSessionSeconds = seconds;
+            it.TotalSeconds += seconds;
+            it.LastPlayed = DateTime.Now.Ticks;
+            Save();
+            Refresh();
+            if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+            Activate();
+            if (Overlay.Visibility == Visibility.Visible || ScanPanel.Visibility == Visibility.Visible)
+            {
+                ShowToast(it.Name + " : " + Fmt.Duration(seconds) + " de jeu");
+                return;
+            }
+            ShowDialog("Partie terminée 🎮",
+                "Tu as joué à " + it.Name + " pendant " + Fmt.Duration(seconds) + ".\n\nTemps total sur ce jeu : " + Fmt.Duration(it.TotalSeconds) + ".",
+                "Cool !", null, null, null);
         }
 
         ContextMenu BuildMenu(Item it)
@@ -425,10 +457,10 @@ namespace Etagere
                 ShowToast(it.Favorite ? it.Name + " ajouté aux favoris" : it.Name + " retiré des favoris");
             });
             sep();
-            foreach (var cat in new[] { Tiles.Games, Tiles.Apps, Tiles.Other })
+            foreach (var cat in Tiles.All)
             {
                 var c = cat;
-                var glyph = c == it.Category ? "" : c == Tiles.Games ? "" : c == Tiles.Apps ? "" : "";
+                var glyph = c == it.Category ? "" : c == Tiles.Games ? "" : c == Tiles.Apps ? "" : c == Tiles.Papers ? "" : "";
                 var mi = add(glyph, "Ranger dans « " + c + " »", () =>
                 {
                     it.Category = c;
@@ -444,13 +476,14 @@ namespace Etagere
                 it.Name = s.Trim();
                 Save(); Refresh();
             }));
-            if (!IsUri(it.Path)) add("", "Ouvrir l'emplacement du fichier", () => RevealInExplorer(it));
+            if (!IsUri(it.Path) && !it.Path.StartsWith("shell:")) add("", "Ouvrir l'emplacement du fichier", () => RevealInExplorer(it));
             if (it.FromDesktop) add("", "Remettre sur le bureau", () =>
             {
                 if (Desk.Restore(it)) { Save(); ShowToast(it.Name + " est de retour sur le bureau"); }
             });
             add("", "Retirer de l'Étagère", () => ShowDialog("Retirer « " + it.Name + " » ?",
-                it.FromDesktop ? "Le raccourci part à la corbeille. Le programme lui-même n'est pas désinstallé."
+                ShortcutInfo.IsDocument(it.Path) ? "Le fichier n'est pas supprimé : il reste là où il est" + (it.Path.StartsWith(Store.PapersDir, StringComparison.OrdinalIgnoreCase) ? " (Documents\\Papiers importants)." : ".")
+                : it.FromDesktop ? "Le raccourci part à la corbeille. Le programme lui-même n'est pas désinstallé."
                                : "Il ne sera plus affiché ici. Le programme lui-même n'est pas désinstallé.",
                 "Retirer", "Annuler", null, _ => RemoveItem(it)));
             return m;
@@ -487,12 +520,15 @@ namespace Etagere
 
         void TidyDesktop(bool confirm)
         {
-            var files = Desk.FindShortcuts();
+            var files = Desk.FindClutter();
             if (files.Count == 0) { ShowToast("Ton bureau est déjà tout propre ✨"); return; }
             if (confirm)
             {
+                bool docs = files.Any(ShortcutInfo.IsDocument);
                 ShowDialog("Ranger le bureau ?",
-                    "J'ai trouvé " + Plural(files.Count, "raccourci", "raccourcis") + " sur ton bureau. Je les range dans l'Étagère.\n\nRien n'est supprimé : tu pourras tout remettre en un clic.",
+                    "J'ai trouvé " + DescribeClutter(files) + " sur ton bureau. Je range tout dans l'Étagère"
+                    + (docs ? " : les documents vont dans le dossier « Documents\\Papiers importants »." : ".")
+                    + "\n\nRien n'est supprimé : tu pourras tout remettre en un clic.",
                     "Ranger", "Annuler", null, _ => TidyDesktop(false));
                 return;
             }
@@ -501,11 +537,11 @@ namespace Etagere
             Save();
             NavTo("all");
             Refresh();
-            ShowToast(Plural(r.Moved, "raccourci rangé", "raccourcis rangés") + " ✨");
+            ShowToast(Plural(r.Moved, "élément rangé", "éléments rangés") + " ✨");
 
             if (r.Locked > 0)
                 ShowDialog("Presque fini !",
-                    Plural(r.Locked, "raccourci est partagé", "raccourcis sont partagés") + " entre tous les comptes du PC. Windows demande les droits administrateur pour les enlever du bureau (ils sont déjà dans l'Étagère).\n\nRelancer l'Étagère en administrateur pour finir le rangement ?",
+                    Plural(r.Locked, "élément est partagé", "éléments sont partagés") + " entre tous les comptes du PC. Windows demande les droits administrateur pour les enlever du bureau (ils sont déjà dans l'Étagère).\n\nRelancer l'Étagère en administrateur pour finir le rangement ?",
                     "Relancer en admin", "Laisser comme ça", null, _ => RestartAsAdmin());
         }
 
@@ -522,14 +558,14 @@ namespace Etagere
         void RestoreAll()
         {
             var items = data.Items.Where(i => i.FromDesktop).ToList();
-            if (items.Count == 0) { ShowToast("Aucun raccourci à remettre sur le bureau"); return; }
+            if (items.Count == 0) { ShowToast("Rien à remettre sur le bureau"); return; }
             ShowDialog("Tout remettre sur le bureau ?",
-                Plural(items.Count, "raccourci retournera", "raccourcis retourneront") + " sur ton bureau. Ils resteront aussi visibles dans l'Étagère.",
+                Plural(items.Count, "élément retournera", "éléments retourneront") + " sur ton bureau. Ils resteront aussi visibles dans l'Étagère.",
                 "Remettre", "Annuler", null, _ =>
                 {
                     int n = items.Count(Desk.Restore);
                     Save(); Refresh();
-                    ShowToast(Plural(n, "raccourci remis", "raccourcis remis") + " sur le bureau");
+                    ShowToast(Plural(n, "élément remis", "éléments remis") + " sur le bureau");
                 });
         }
 
@@ -546,7 +582,7 @@ namespace Etagere
                 {
                     same.Key = g.Key;
                     if (same.PosterPath == null) same.PosterPath = g.PosterPath;
-                    same.Category = Tiles.Games;
+                    same.Category = g.Category;
                     continue;
                 }
                 data.Items.Add(g);
@@ -562,13 +598,137 @@ namespace Etagere
             return added;
         }
 
-        void FindGames()
+        // ───────────────────────── Scan de tout le PC ─────────────────────────
+
+        List<Item> scanResults = new List<Item>();
+        bool scanning;
+        FrameworkElement ScanPanel, ScanBusy, ScanEmpty, ScanTools;
+        ItemsControl ScanList;
+        TextBlock ScanTitle, ScanStatus, ScanSpinner;
+        RadioButton ScanTabGames, ScanTabApps;
+        Button BtnScanAdd;
+
+        void WireScan()
         {
-            int n = ImportGames();
+            ScanPanel = F<FrameworkElement>("ScanPanel"); ScanBusy = F<FrameworkElement>("ScanBusy"); ScanEmpty = F<FrameworkElement>("ScanEmpty");
+            ScanTools = F<FrameworkElement>("ScanTools"); ScanList = F<ItemsControl>("ScanList");
+            ScanTitle = F<TextBlock>("ScanTitle"); ScanStatus = F<TextBlock>("ScanStatus"); ScanSpinner = F<TextBlock>("ScanSpinner");
+            ScanTabGames = F<RadioButton>("ScanTabGames"); ScanTabApps = F<RadioButton>("ScanTabApps"); BtnScanAdd = F<Button>("BtnScanAdd");
+
+            ScanTabGames.Checked += (s, e) => ShowScanList();
+            ScanTabApps.Checked += (s, e) => ShowScanList();
+            F<Button>("BtnScanAll").Click += (s, e) => { foreach (Item i in ScanList.ItemsSource ?? new List<Item>()) i.Selected = true; };
+            F<Button>("BtnScanNone").Click += (s, e) => { foreach (Item i in ScanList.ItemsSource ?? new List<Item>()) i.Selected = false; };
+            F<Button>("BtnScanCancel").Click += (s, e) => CloseScan();
+            BtnScanAdd.Click += (s, e) => AddScanned();
+            // L'étiquette de catégorie : jeu ⇄ appli
+            ScanList.AddHandler(ButtonBase.ClickEvent, new RoutedEventHandler((s, e) =>
+            {
+                var b = e.OriginalSource as Button;
+                if (b == null || (b.Tag as string) != "cat") return;
+                var it = b.DataContext as Item;
+                if (it == null) return;
+                it.Category = it.Category == Tiles.Games ? Tiles.Apps : Tiles.Games;
+                it.Selected = true;
+                ShowScanList();
+                e.Handled = true;
+            }));
+        }
+
+        public void StartScan()
+        {
+            if (scanning) return;
+            scanning = true;
+            ScanPanel.Visibility = Visibility.Visible;
+            ScanPanel.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160)));
+            ScanTitle.Text = "Recherche sur tout ton PC…";
+            ScanStatus.Text = "Je prépare la recherche…";
+            ScanBusy.Visibility = Visibility.Visible;
+            ScanEmpty.Visibility = Visibility.Collapsed;
+            ScanTools.Visibility = Visibility.Hidden;
+            ScanList.ItemsSource = null;
+            BtnScanAdd.IsEnabled = false;
+            BtnScanAdd.Content = "Ajouter";
+            ScanSpinner.RenderTransform.BeginAnimation(RotateTransform.AngleProperty,
+                new DoubleAnimation(0, 360, TimeSpan.FromSeconds(1.1)) { RepeatBehavior = RepeatBehavior.Forever });
+
+            Action<string> status = msg => Dispatcher.BeginInvoke(new Action(() => ScanStatus.Text = msg));
+            System.Threading.Tasks.Task.Run(() => Scanner.Run(data, status)).ContinueWith(t =>
+            {
+                scanning = false;
+                ScanSpinner.RenderTransform.BeginAnimation(RotateTransform.AngleProperty, null);
+                ScanBusy.Visibility = Visibility.Collapsed;
+                scanResults = t.IsFaulted ? new List<Item>() : t.Result;
+                foreach (var it in scanResults)
+                    it.PropertyChanged += (s, e) => { if (e.PropertyName == "Selected") UpdateScanButton(); };
+                int games = scanResults.Count(i => i.Category == Tiles.Games), apps = scanResults.Count - games;
+                if (scanResults.Count == 0)
+                {
+                    ScanTitle.Text = "Rien de nouveau : tout est déjà dans ton Étagère ✨";
+                    ScanEmpty.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    ScanTitle.Text = "J'ai trouvé " + Plural(games, "jeu", "jeux") + " et " + Plural(apps, "application", "applications");
+                    ScanTools.Visibility = Visibility.Visible;
+                }
+                if (games == 0 && apps > 0) ScanTabApps.IsChecked = true;
+                else { ScanTabGames.IsChecked = true; ShowScanList(); }
+                LoadArt(scanResults);
+            }, System.Threading.Tasks.TaskScheduler.FromCurrentSynchronizationContext());
+        }
+
+        void ShowScanList()
+        {
+            if (ScanList == null || scanning) return;
+            bool games = ScanTabGames.IsChecked == true;
+            var list = scanResults.Where(i => (i.Category == Tiles.Games) == games).OrderBy(i => i.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+            ScanList.ItemsSource = list;
+            LoadArt(list);   // icônes de la liste affichée en premier
+            ScanTabGames.Content = "Jeux (" + scanResults.Count(i => i.Category == Tiles.Games) + ")";
+            ScanTabApps.Content = "Applications (" + scanResults.Count(i => i.Category != Tiles.Games) + ")";
+            ScanEmpty.Visibility = list.Count == 0 && scanResults.Count > 0 ? Visibility.Visible : ScanEmpty.Visibility;
+            if (list.Count > 0) ScanEmpty.Visibility = Visibility.Collapsed;
+            F<ScrollViewer>("ScanScroller").ScrollToTop();
+            UpdateScanButton();
+        }
+
+        void UpdateScanButton()
+        {
+            int n = scanResults.Count(i => i.Selected);
+            BtnScanAdd.IsEnabled = n > 0;
+            BtnScanAdd.Content = n > 0 ? "Ajouter (" + n + ")" : "Ajouter";
+        }
+
+        void AddScanned()
+        {
+            var chosen = scanResults.Where(i => i.Selected).ToList();
+            foreach (var it in chosen)
+            {
+                it.Added = DateTime.Now.Ticks;
+                if (it.Key != null) data.Ignored.Remove(it.Key);
+                data.Items.Add(it);
+            }
             Save();
-            if (n > 0) NavTo("Jeux");
+            CloseScan();
+            NavTo(chosen.All(i => i.Category == Tiles.Games) ? "Jeux" : "all");
             Refresh();
-            ShowToast(n > 0 ? Plural(n, "nouveau jeu ajouté", "nouveaux jeux ajoutés") : "Aucun nouveau jeu trouvé (Steam, Epic Games)");
+            ShowToast(Plural(chosen.Count, "élément ajouté", "éléments ajoutés") + " ✨");
+        }
+
+        void CloseScan()
+        {
+            if (scanning) return;
+            ScanPanel.Visibility = Visibility.Collapsed;
+            ScanList.ItemsSource = null;
+        }
+
+        static string DescribeClutter(List<string> files)
+        {
+            int docs = files.Count(ShortcutInfo.IsDocument), links = files.Count - docs;
+            if (docs == 0) return Plural(links, "raccourci", "raccourcis");
+            if (links == 0) return Plural(docs, "document", "documents");
+            return Plural(links, "raccourci", "raccourcis") + " et " + Plural(docs, "document", "documents");
         }
 
         void BrowseAdd()
@@ -576,7 +736,8 @@ namespace Etagere
             var dlg = new OpenFileDialog
             {
                 Title = "Ajouter des programmes à l'Étagère",
-                Filter = "Programmes et raccourcis|*.exe;*.lnk;*.url;*.appref-ms;*.bat|Tous les fichiers|*.*",
+                Filter = "Programmes, raccourcis et documents|*.exe;*.lnk;*.url;*.appref-ms;*.bat;" + string.Join(";", ShortcutInfo.DocExtensions.Select(x => "*" + x))
+                    + "|Programmes et raccourcis|*.exe;*.lnk;*.url;*.appref-ms;*.bat|Tous les fichiers|*.*",
                 Multiselect = true,
                 InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)
             };
@@ -591,7 +752,7 @@ namespace Etagere
             {
                 try
                 {
-                    if (ShortcutInfo.IsShortcut(p) && Desk.IsDesktopFolder(Path.GetDirectoryName(p)))
+                    if ((ShortcutInfo.IsShortcut(p) || ShortcutInfo.IsDocument(p)) && Desk.IsDesktopFolder(Path.GetDirectoryName(p)))
                     {
                         int before = tidy.Moved;
                         Desk.TidyOne(data, p, tidy);

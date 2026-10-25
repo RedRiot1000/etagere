@@ -29,7 +29,7 @@ namespace Etagere
             if (snap >= 0 && snap + 1 < args.Length)
             {
                 var path = args[snap + 1];
-                var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(Array.IndexOf(args, "--scan") >= 0 ? 7 : 3) };
                 timer.Tick += (s, e) =>
                 {
                     timer.Stop();
@@ -41,7 +41,7 @@ namespace Etagere
                     using (var fs = System.IO.File.Create(path)) enc.Save(fs);
                     win.Close();
                 };
-                win.ContentRendered += (s, e) => timer.Start();
+                win.ContentRendered += (s, e) => { if (Array.IndexOf(args, "--scan") >= 0) win.StartScan(); timer.Start(); };
             }
             app.Run(win);
         }

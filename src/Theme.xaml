@@ -201,6 +201,64 @@
         </Setter>
     </Style>
 
+    <!-- Ligne cochable de la fenêtre de scan -->
+    <Style x:Key="RowCheck" TargetType="CheckBox">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Border x:Name="bd" CornerRadius="10" Background="Transparent" Padding="8,7" Margin="0,1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="34"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="box" Width="20" Height="20" CornerRadius="6" BorderThickness="1.5" BorderBrush="#40FFFFFF"
+                                    Background="Transparent" HorizontalAlignment="Left">
+                                <TextBlock x:Name="tick" Text="&#xE73E;" FontFamily="{StaticResource Glyph}" FontSize="11" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Hidden"/>
+                            </Border>
+                            <ContentPresenter Grid.Column="1" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="Background" Value="#0DFFFFFF"/></Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="box" Property="Background" Value="{StaticResource Accent}"/>
+                            <Setter TargetName="box" Property="BorderThickness" Value="0"/>
+                            <Setter TargetName="tick" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Pill" TargetType="Button">
+        <Setter Property="Foreground" Value="#D8DAE5"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bd" CornerRadius="8" Background="#16FFFFFF" BorderBrush="#1FFFFFFF" BorderThickness="1" Padding="10,4">
+                        <StackPanel Orientation="Horizontal">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                            <TextBlock Text="&#xE8AB;" FontFamily="{StaticResource Glyph}" FontSize="10" Margin="7,1,0,0" Opacity="0.6" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bd" Property="Background" Value="#2AFFFFFF"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="#8B5CF6"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Curseur de taille -->
     <Style x:Key="BareRepeat" TargetType="RepeatButton">
         <Setter Property="Focusable" Value="False"/>
@@ -396,6 +454,13 @@
                         <!-- Survol -->
                         <Grid x:Name="hover" Opacity="0">
                             <Border CornerRadius="16" Background="#26000000"/>
+                            <Border Visibility="{Binding PlayVisibility}" CornerRadius="9" Background="#CC0B0B16" Padding="8,4"
+                                    HorizontalAlignment="Center" VerticalAlignment="Top" Margin="8,10,8,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE916;" FontFamily="{StaticResource Glyph}" FontSize="10.5" Foreground="#A78BFA" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Text="{Binding PlayInfo}" FontSize="11" Foreground="White" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </Border>
                             <Border CornerRadius="0,0,16,16" VerticalAlignment="Bottom" Height="96">
                                 <Border.Background>
                                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
